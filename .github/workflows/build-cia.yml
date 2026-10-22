@@ -9,9 +9,9 @@ jobs:
     runs-on: ubuntu-latest
     container: devkitpro/devkitarm:latest
     steps:
-      - name: Checkout project
+      - name: Baixar projeto
         uses: actions/checkout@v4
-      - name: Install build tools
+      - name: Instalar ferramentas de build
         shell: bash
         run: |
           (apt-get update -qq && apt-get install -y -qq wget unzip) || true
@@ -27,13 +27,13 @@ jobs:
           chmod a+x /usr/local/bin/makerom /usr/local/bin/bannertool
           command -v makerom
           command -v bannertool
-      - name: Build game and make CIA
+      - name: Compilar o jogo e gerar o CIA
         shell: bash
         run: |
           set -euo pipefail
           make clean all
           bash build_cia.sh
-      - name: Upload CIA
+      - name: Disponibilizar o CIA para baixar
         uses: actions/upload-artifact@v4
         with:
           name: Impostor3DS-CIA-Old3DS
