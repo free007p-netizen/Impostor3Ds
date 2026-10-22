@@ -9,9 +9,9 @@ jobs:
     runs-on: ubuntu-latest
     container: devkitpro/devkitarm:latest
     steps:
-      - name: Baixar projeto
+      - name: Checkout project
         uses: actions/checkout@v4
-      - name: Instalar ferramentas de build
+      - name: Install build tools
         shell: bash
         run: |
           (apt-get update -qq && apt-get install -y -qq wget unzip) || true
@@ -27,13 +27,44 @@ jobs:
           chmod a+x /usr/local/bin/makerom /usr/local/bin/bannertool
           command -v makerom
           command -v bannertool
-      - name: Compilar o jogo e gerar o CIA
+      - name: Compile game
         shell: bash
         run: |
           set -euo pipefail
-          make clean all
-          bash build_cia.sh
-      - name: Disponibilizar o CIA para baixar
+          DKP=${DEVKITPRO:-/opt/devkitpro}
+          ARM=${DEVKITARM:-$DKP/devkitARM}
+          ARCH="-march=armv6k -mtune=mpcore -mfloat-abi=hard -mtp=soft"
+          $ARM/bin/arm-none-eabi-gcc -g -Wall -O2 -mword-relocations -ffunction-sections -ffast-math $ARCH -std=gnu11 -D__3DS__ -I$DKP/libctru/include main.c -o Impostor3DS.elf -specs=3dsx.specs -g $ARCH -L$DKP/libctru/lib -lctru -lm
+          ls -l Impostor3DS.elf
+      - name: Package CIA
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p build
+          cat > app.rsf <<'EOF'
+          BasicInfo:
+            Title                   : Imp3DS
+            CompanyCode             : "00"
+            ProductCode             : CTR-P-IMPS
+            ContentType             : Application
+            Logo                    : Nintendo
+
+          TitleInfo:
+            UniqueId                : 0xF1D00
+            Category                : Application
+
+          Option:
+            UseOnSD                 : true
+            FreeProductCode         : true
+            MediaFootPadding        : false
+            EnableCrypt             : false
+            EnableCompress          : true
+          EOF
+          bannertool makesmdh -s "Impostor 3DS" -l "Impostor game for Old 3DS" -p "Impostor 3DS" -i icon.png -o build/icon.smdh
+          bannertool makebanner -i banner.png -a silence.wav -o build/banner.bnr
+          makerom -f cia -o Impostor3DS.cia -target t -exefslogo -elf Impostor3DS.elf -rsf app.rsf -icon build/icon.smdh -banner build/banner.bnr -desc app:4
+          ls -l Impostor3DS.cia
+      - name: Upload CIA
         uses: actions/upload-artifact@v4
         with:
           name: Impostor3DS-CIA-Old3DS
