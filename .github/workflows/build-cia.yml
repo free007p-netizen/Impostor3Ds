@@ -1,0 +1,42 @@
+name: Build Impostor 3DS CIA
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main, master ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    container: devkitpro/devkitarm:latest
+    steps:
+      - name: Baixar projeto
+        uses: actions/checkout@v4
+      - name: Instalar ferramentas de build
+        shell: bash
+        run: |
+          set -euo pipefail
+          apt-get update
+          apt-get install -y build-essential git zlib1g-dev
+          mkdir -p /tmp/3ds-tools
+          git clone --depth 1 --recurse-submodules https://github.com/3DSGuy/Project_CTR.git /tmp/3ds-tools/Project_CTR
+          (make -C /tmp/3ds-tools/Project_CTR/makerom deps -j2 || true)
+          make -C /tmp/3ds-tools/Project_CTR/makerom -j2
+          find /tmp/3ds-tools/Project_CTR/makerom -type f -name makerom -perm -111 -print -quit | xargs -I{} install -m 755 {} /usr/local/bin/makerom
+          git clone --depth 1 --recurse-submodules https://github.com/Steveice10/bannertool.git /tmp/3ds-tools/bannertool
+          make -C /tmp/3ds-tools/bannertool -j2
+          find /tmp/3ds-tools/bannertool -type f -name bannertool -perm -111 -print -quit | xargs -I{} install -m 755 {} /usr/local/bin/bannertool
+          command -v makerom
+          command -v bannertool
+      - name: Compilar o jogo e gerar o CIA
+        shell: bash
+        run: |
+          set -euo pipefail
+          make clean all
+          bash build_cia.sh
+      - name: Disponibilizar o CIA para baixar
+        uses: actions/upload-artifact@v4
+        with:
+          name: Impostor3DS-CIA-Old3DS
+          path: Impostor3DS.cia
+          if-no-files-found: error
+          retention-days: 14
